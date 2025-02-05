@@ -12,4 +12,4 @@ tokio = { version = "1.42.0", features = ["full"] }
 ## msgs
 sensor_msgs = "*"
 ackermann_msgs = "*"
-# ackermann_msgs = { version = "*", features = ["serde"] }
+nav_msgs = "*"
