@@ -1,4 +1,4 @@
-use ackermann_msgs::msg::AckermannDriveStamped; // AckermannDriveStamped로 변경
+use ackermann_msgs::msg::AckermannDriveStamped;
 use anyhow::{Error, Result};
 use rclrs::{self, Context};
 use std::{env, thread, time::Duration};
