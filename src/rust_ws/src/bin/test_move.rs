@@ -19,10 +19,13 @@ fn main() -> Result<(), Error> {
     }
 
     for _ in 0..100 {
-        msg.drive.speed = 0.0;
+        msg.drive.speed = -1.0;
         thread::sleep(Duration::from_millis(10));
         let _ = publisher.publish(&msg);
     }
+
+    msg.drive.speed = 0.0;
+    let _ = publisher.publish(&msg);
 
     Ok(())
 }
