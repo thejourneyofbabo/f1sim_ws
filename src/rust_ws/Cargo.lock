@@ -726,6 +726,10 @@ name = "rust_pubsub"
 version = "0.1.0"
 
 [[patch.unused]]
+name = "rust_ws"
+version = "0.1.0"
+
+[[patch.unused]]
 name = "shape_msgs"
 version = "4.2.4"
 
