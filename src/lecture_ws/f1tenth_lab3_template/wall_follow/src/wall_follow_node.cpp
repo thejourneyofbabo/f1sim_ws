@@ -35,11 +35,11 @@ private:
     double error = 0.0;
     double integral = 0.0;
 
-    double kp = 0.0;
+    double kp = 4.0;
     double ki = 0.0;
-    double kd = 0.0;
+    double kd = 2.0;
 
-    double ref_angle_f = M_PI / 6;
+    double ref_angle_f = M_PI / 8;
     double ref_angle_r = M_PI / 2;
     double ref_dist = 0.5;
 
@@ -97,7 +97,7 @@ private:
         double error_angle = std::atan2(numerator, denominator);
         double present_dist = range_r * std::cos(error_angle);
         double future_dist = present_dist + (speed_ * scan_delay) *                               std::sin(error_angle);
-        double error_dist = ref_dist - future_dist;
+        double error_dist = -(ref_dist - future_dist);
 
         return error_dist;
 
