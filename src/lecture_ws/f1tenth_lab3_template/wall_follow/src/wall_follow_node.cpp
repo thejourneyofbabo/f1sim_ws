@@ -35,13 +35,13 @@ private:
     double error = 0.0;
     double integral = 0.0;
 
-    double kp = 4.0;
-    double ki = 0.0;
-    double kd = 2.0;
+    double kp = 3.0;
+    double ki = 0.001;
+    double kd = 0.05;
 
-    double ref_angle_f = M_PI / 8;
+    double ref_angle_f = M_PI / 6;
     double ref_angle_r = M_PI / 2;
-    double ref_dist = 0.5;
+    double ref_dist = 0.9;
 
     double speed_ = 0.0;
     double scan_delay = 0.004;
@@ -120,7 +120,8 @@ private:
 
         double angle = 0.0;
         // TODO: Use kp, ki & kd to implement a PID controller
-        double dt = (current_time - pid_last_time).seconds();
+        /*double dt = (current_time - pid_last_time).seconds();*/
+        double dt = std::max(0.01, (current_time - pid_last_time).seconds());
         double integral_error = 0.0;
         integral_error += (prev_error + error) / 2.0 * dt;
         double derivative_error = (error - prev_error) / dt;
@@ -138,11 +139,11 @@ private:
         double drive_speed = 0.0;
 
         if (abs_pid_result <= 10.0) {
-          drive_speed = 1.5;
+          drive_speed = 1.2;
         } else if (abs_pid_result <= 20.0) {
-          drive_speed = 1.0;
+          drive_speed = 0.8;
         } else {
-          drive_speed = 0.5;
+          drive_speed = 0.3;
         }
 
         auto drive_msg = ackermann_msgs::msg::AckermannDriveStamped();
