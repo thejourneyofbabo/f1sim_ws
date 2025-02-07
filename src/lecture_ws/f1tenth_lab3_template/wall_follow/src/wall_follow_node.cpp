@@ -14,11 +14,11 @@ public:
 
         // LaserScan 메시지를 구독하여 scan_callback 호출
         scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-            "/scan", 10, std::bind(&Safety::scan_callback, this, std::placeholders::_1));
+            "/scan", 10, std::bind(&WallFollow::scan_callback, this, std::placeholders::_1));
 
         // Odometry 메시지를 구독하여 odom_callback 호출
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-            "/odom", 10, std::bind(&Safety::odom_callback, this, std::placeholders::_1));
+            "/odom", 10, std::bind(&WallFollow::odom_callback, this, std::placeholders::_1));
 
         // AckermannDriveStamped 메시지를 발행하는 퍼블리셔 생성
         drive_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/drive", 10);
@@ -55,7 +55,7 @@ private:
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr drive_pub_;
 
-    double get_range(const sensor_msgs::msg::laserscan::constsharedptr scan_msg, double angle)
+    double get_range(const sensor_msgs::msg::LaserScan::SharedPtr scan_msg, double angle)
     {
         /*
         Simple helper to return the corresponding range measurement at a given angle. Make sure you take care of NaNs and infs.
@@ -121,7 +121,8 @@ private:
         double angle = 0.0;
         // TODO: Use kp, ki & kd to implement a PID controller
         double dt = (current_time - pid_last_time).seconds();
-        double integral_error += (prev_error + error) / 2.0 * dt;
+        double integral_error = 0.0;
+        integral_error += (prev_error + error) / 2.0 * dt;
         double derivative_error = (error - prev_error) / dt;
         prev_error = error;
         pid_last_time = current_time;
@@ -152,7 +153,7 @@ private:
         drive_pub_->publish(drive_msg);
     }
 
-    void scan_callback(const sensor_msgs::msg::laserscan::constsharedptr scan_msg) 
+    void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr scan_msg) 
     {
         /*
         Callback function for LaserScan messages. Calculate the error and publish the drive message in this function.
@@ -171,7 +172,7 @@ private:
         double range_f = get_range(scan_msg, ref_angle_f);
         double range_r = get_range(scan_msg, ref_angle_r);
 
-        double error = get_error(range_f, range_r, ref_dist);
+        error = get_error(range_f, range_r, ref_dist);
 
         pid_control(error, speed_);
 
