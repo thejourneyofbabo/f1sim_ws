@@ -31,7 +31,7 @@ private:
     // TODO: double kd =
     // TODO: double ki =
     double servo_offset = 0.0;
-    double prev_error = 0.0;
+    /*double prev_error = 0.0;*/
     double error = 0.0;
     double integral = 0.0;
 
@@ -41,6 +41,7 @@ private:
 
     double ref_angle_f = M_PI / 6;
     double ref_angle_r = M_PI / 2;
+    double ref_dist = 0.5;
 
     double speed_ = 0.0;
     double scan_delay = 0.004;
@@ -113,10 +114,42 @@ private:
         Returns:
             None
         */
+        static double prev_error = 0.0;
+        static rclcpp::Time pid_last_time = this->now();    // save last time
+        rclcpp::Time current_time = this->now();
+
         double angle = 0.0;
         // TODO: Use kp, ki & kd to implement a PID controller
+        double dt = (current_time - pid_last_time).seconds();
+        double integral_error += (prev_error + error) / 2.0 * dt;
+        double derivative_error = (error - prev_error) / dt;
+        prev_error = error;
+        pid_last_time = current_time;
+        
+        double pid_result = kp * error +
+                            ki * integral_error +
+                            kd * derivative_error;
+        
+    /*If the steering angle is between 0 degrees and 10 degrees, the car should drive at 1.5 meters per second.*/
+    /*If the steering angle is between 10 degrees and 20 degrees, the speed should be 1.0 meters per second.*/
+    /*Otherwise, the speed should be 0.5 meters per second.*/
+        double abs_pid_result = std::abs(pid_result);
+        double drive_speed = 0.0;
+
+        if (abs_pid_result <= 10.0) {
+          drive_speed = 1.5;
+        } else if (abs_pid_result <= 20.0) {
+          drive_speed = 1.0;
+        } else {
+          drive_speed = 0.5;
+        }
+
         auto drive_msg = ackermann_msgs::msg::AckermannDriveStamped();
         // TODO: fill in drive message and publish
+        drive_msg.drive.steering_angle = pid_result;
+        drive_msg.drive.speed = drive_speed;
+        
+        drive_pub_->publish(drive_msg);
     }
 
     void scan_callback(const sensor_msgs::msg::laserscan::constsharedptr scan_msg) 
@@ -138,8 +171,9 @@ private:
         double range_f = get_range(scan_msg, ref_angle_f);
         double range_r = get_range(scan_msg, ref_angle_r);
 
+        double error = get_error(range_f, range_r, ref_dist);
 
-
+        pid_control(error, speed_);
 
     }
 
