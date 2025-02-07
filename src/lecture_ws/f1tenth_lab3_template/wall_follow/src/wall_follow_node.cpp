@@ -39,6 +39,12 @@ private:
     double ki = 0.0;
     double kd = 0.0;
 
+    double ref_angle_f = M_PI / 6;
+    double ref_angle_r = M_PI / 2;
+
+    double speed_ = 0.0;
+    double scan_delay = 0.004;
+
     // Topics
     /*std::string lidarscan_topic = "/scan";*/
     /*std::string drive_topic = "/drive";*/
@@ -69,7 +75,7 @@ private:
         return range;
     }
 
-    double get_error(float* range_data, double dist)
+    double get_error(float range_f, float range_r, double ref_dist)
     {
         /*
         Calculates the error to the wall. Follow the wall to the left (going counter clockwise in the Levine loop). You potentially will need to use get_range()
@@ -83,9 +89,18 @@ private:
         */
 
         // TODO:implement
-        return 0.0;
-    }
 
+        double theta = ref_angle_r - ref_angle_f;
+        double numerator = range_f * std::cos(theta) - range_r;
+        double denominator = range_f * std::sin(theta);
+        double error_angle = std::atan2(numerator, denominator);
+        double present_dist = range_r * std::cos(error_angle);
+        double future_dist = present_dist + (speed_ * scan_delay) *                               std::sin(error_angle);
+        double error_dist = ref_dist - future_dist;
+
+        return error_dist;
+
+    }
     void pid_control(double error, double velocity)
     {
         /*
@@ -119,8 +134,6 @@ private:
         double velocity = 0.0; // TODO: calculate desired car velocity based on error
         // TODO: actuate the car with PID
 
-        double ref_angle_f = M_PI / 6;
-        double ref_angle_r = M_PI / 2;
 
         double range_f = get_range(scan_msg, ref_angle_f);
         double range_r = get_range(scan_msg, ref_angle_r);
@@ -128,6 +141,11 @@ private:
 
 
 
+    }
+
+    void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
+        // 현재 속도 저장 (x축 속도)
+        speed_ = msg->twist.twist.linear.x;
     }
 
 };
