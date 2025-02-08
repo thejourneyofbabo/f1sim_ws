@@ -13,3 +13,13 @@ tokio = { version = "1.42.0", features = ["full"] }
 sensor_msgs = "*"
 ackermann_msgs = "*"
 nav_msgs = "*"
+
+
+## --- F1Tenth Lab Section --- ###
+[[bin]]
+name = "lab3_wall_follwing"
+path = "./src/lab_f1/lab3_wall_following.rs"
+
+
+## --- F1Tenth Lab Section --- ###
+
