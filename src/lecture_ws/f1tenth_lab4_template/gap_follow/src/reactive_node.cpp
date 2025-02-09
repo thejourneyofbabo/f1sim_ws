@@ -189,8 +189,8 @@ private:
           }
         }
         // Eliminate all points inside 'bubble' (set them to zero) 
-        double car_width = 0.36;
-        double car_radius = car_width / 2;
+        double car_width = 0.5;
+        double car_radius = car_width;
         int bubble_point_num = (car_radius / min_range) / scan_msg->angle_increment;
 
         // Find max length gap 
@@ -206,19 +206,36 @@ private:
         double steering_degree = std::abs(steering_angle * 180 / M_PI);
 
         if (steering_degree <= 5.0) {  // 거의 직진
-            drive_speed = 1.5;
-        } else if (steering_degree <= 10.0) {  // 약간의 커브
             drive_speed = 1.2;
-        } else if (steering_degree <= 15.0) {  // 완만한 커브
+        } else if (steering_degree <= 10.0) {  // 약간의 커브
             drive_speed = 1.0;
-        } else if (steering_degree <= 20.0) {  // 중간 커브
+        } else if (steering_degree <= 15.0) {  // 완만한 커브
             drive_speed = 0.8;
-        } else if (steering_degree <= 25.0) {  // 급한 커브
-            drive_speed = 0.6;
-        } else {  // 매우 급한 커브
-            drive_speed = 0.4;
+        } else {  // 중간 커브
+            drive_speed = 0.5;
         }
+        /*} else if (steering_degree <= 25.0) {  // 급한 커브*/
+        /*    drive_speed = 0.4;*/
+        /*} else {  // 매우 급한 커브*/
+        /*    drive_speed = 0.2;*/
+        /*}*/
+        double left_wing = M_PI / 2;
+        double right_wing = -(M_PI / 2);
+        double safe_dist = car_width;
+        
+        int left_index = (left_wing - scan_msg->angle_min) / scan_msg->angle_increment;
+        int right_index = (right_wing - scan_msg->angle_min) / scan_msg->angle_increment;
 
+        /*for(int i = 0; i < right_index; i++){*/
+        /*  if(processed_ranges[i] < safe_dist)*/
+        /*    steering_angle = 0.0;*/
+        /*}*/
+        /**/
+        /*for(int i = left_index; i < data_size; i++){*/
+        /*  if(processed_ranges[i] < safe_dist)*/
+        /*    steering_angle = 0.0;*/
+        /*}*/
+        
         drive_msg.drive.steering_angle = steering_angle;
         drive_msg.drive.speed = drive_speed;
         
