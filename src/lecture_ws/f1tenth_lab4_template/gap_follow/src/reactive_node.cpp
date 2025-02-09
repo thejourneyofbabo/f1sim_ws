@@ -35,7 +35,7 @@ private:
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr drive_pub_;
 
-    void preprocess_lidar(std::vector<float>& ranges)
+    std::vector<float> preprocess_lidar(std::vector<float>& ranges)
     {   
         // Preprocess the LiDAR scan array. Expert implementation includes:
         // Cuttoff with threwindow /swapfileshold
@@ -50,7 +50,7 @@ private:
         std::fill(padded.begin(), padded.begin() + padding, ranges.front());
 
         // copy origin
-        std::copy(ranges.begin(), ranges.end(), padded.begin() + padding());
+        std::copy(ranges.begin(), ranges.end(), padded.begin() + padding;
 
         // right padding
         std::fill(padded.begin() + padding + data_size, padded.end(), ranges.back());
@@ -91,7 +91,8 @@ private:
     void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr scan_msg) 
     {   
         // Process each LiDAR scan as per the Follow Gap algorithm & publish an AckermannDriveStamped Message
-        preprocess_lidar(scan_msg->ranges);
+        std::vector<float> processed_ranges;
+        processed_ranges = preprocess_lidar(scan_msg->ranges);
 
         /// TODO:
         // Find closest point to LiDAR
