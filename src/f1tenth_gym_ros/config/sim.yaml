@@ -43,8 +43,8 @@ bridge:
 
     # map parameters
     # map_path: '/sim_ws/src/f1tenth_gym_ros/maps/levine'
-    # map_path: '/home/jsyun/Programming/f1sim_ws/src/f1tenth_gym_ros/maps/levine' # Ubuntu_env
-    map_path: '/js_ws/f1sim_ws/src/f1tenth_gym_ros/maps/levine' # Docker_env
+    map_path: '/home/jsyun/Programming/f1sim_ws/src/f1tenth_gym_ros/maps/levine_blocked' # Ubuntu_env
+    # map_path: '/js_ws/f1sim_ws/src/f1tenth_gym_ros/maps/levine' # Docker_env
 
     map_img_ext: '.png'
 
