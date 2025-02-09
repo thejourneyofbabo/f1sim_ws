@@ -20,11 +20,11 @@ public:
         /// TODO: create ROS subscribers and publishers
         // LaserScan 메시지를 구독하여 scan_callback 호출
         scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-            "/scan", 10, std::bind(&WallFollow::scan_callback, this, std::placeholders::_1));
+            "/scan", 10, std::bind(&ReactiveFollowGap::scan_callback, this, std::placeholders::_1));
 
-        // Odometry 메시지를 구독하여 odom_callback 호출
-        odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-            "/odom", 10, std::bind(&WallFollow::odom_callback, this, std::placeholders::_1));
+        /*// Odometry 메시지를 구독하여 odom_callback 호출*/
+        /*odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(*/
+        /*    "/odom", 10, std::bind(&ReactiveFollowGap::odom_callback, this, std::placeholders::_1));*/
 
         // AckermannDriveStamped 메시지를 발행하는 퍼블리셔 생성
         drive_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/drive", 10);
@@ -38,15 +38,13 @@ private:
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr drive_pub_;
 
-    double min_range = 0.0;
-    int min_index = 0;
     int data_size = 0;
 
     std::vector<float> preprocess_lidar(std::vector<float>& ranges)
     {   
         // Preprocess the LiDAR scan array. Expert implementation includes:
         // Cuttoff with threwindow /swapfileshold
-        double scan_threshold = 2.5;
+        double scan_threshold = 2.0;
         int window_size = 9;
         int padding = window_size / 2;
         data_size = ranges.size();
@@ -57,7 +55,7 @@ private:
         std::fill(padded.begin(), padded.begin() + padding, ranges.front());
 
         // copy origin
-        std::copy(ranges.begin(), ranges.end(), padded.begin() + padding;
+        std::copy(ranges.begin(), ranges.end(), padded.begin() + padding);
 
         // right padding
         std::fill(padded.begin() + padding + data_size, padded.end(), ranges.back());
@@ -76,51 +74,101 @@ private:
           }
           ranges[i] = sum / window_size;
           
-          if(ranges[i] < min_range) {
-            min_range = ranges[i];
-            min_index = i;
-          }
         }
         return ranges;
     }
 
-    /*void find_max_gap(int index)*/
-    /*{   */
-    /*    // Return the start index & end index of the max gap in free_space_ranges*/
-    /*    int middle_index = data_size / 2;*/
-    /*    if(index > data_size)*/
-    /*    return;*/
-    /*}*/
-
-    int find_best_point(std::vector<float> ranges, int bubble_point_num)
+    int find_max_gap(std::vector<float> ranges,int min_index, int bubble_point_num)
     {   
-        // Start_i & end_i are start and end indicies of max-gap range, respectively
-        // Return index of best point in ranges
-	      // Naive: Choose the furthest point within ranges and go there
-        double car_width = 0.36;
-        double car_radius = car_width / 2;
+        // Return the start index & end index of the max gap in free_space_ranges
         int half_bubble_points = bubble_point_num / 2;
         int middle_index = data_size / 2;
         double max_dist = 0.0;
         int max_index = 0;
-        if(min_index > middle_index){ // steer left
-            for(int i = 0; i <= min_index - half_bubble_points; i++){
-                if(ranges[i] > max_dist) {
-                  max_dist = ranges[i];
-                  max_index = i;
-                }
+        std::vector<int> max_points_vec;
+
+        if ((min_index - half_bubble_points) >= 0 && 
+            (min_index + half_bubble_points) <= 1079) 
+        {
+            // 정상 범위 처리
+            for(int i = min_index - half_bubble_points; 
+                i <= min_index + half_bubble_points; i++) {
+                ranges[i] = 0;
             }
-        } else{ // steer right
-            for(int i = min_index + half_bubble_points; i < data_size; i++){
-                if(ranges[i] > max_dist) {
-                  max_dist = ranges[i];
-                  max_index = i;
-                }
+        }
+        // 왼쪽 경계를 벗어나는 경우
+        else if ((min_index - half_bubble_points) < 0) 
+        {
+            for(int i = 0; i < min_index + half_bubble_points; i++) {
+                ranges[i] = 0;
+            }
+        } 
+        // 오른쪽 경계를 벗어나는 경우
+        else if ((min_index + half_bubble_points) > 1079) 
+        {
+            for(int i = min_index - half_bubble_points; i < 1080; i++) {
+                ranges[i] = 0;
+            }
+        }
+        
+        // 최대값 찾기
+        for(int i = 0; i < ranges.size(); i++) {
+            if(ranges[i] > max_dist) {
+                max_dist = ranges[i];
+            }
+        }
+        
+        // 최대값을 가진 인덱스들 찾기
+        for(int i = 0; i < ranges.size(); i++) {
+            if(ranges[i] == max_dist) {
+                max_points_vec.push_back(i);
             }
         }
 
-        return max_index;
+        // 연속된 인덱스들의 가장 긴 구간 찾기
+        int current_start = max_points_vec[0];
+        int current_length = 1;
+        int max_gap_start = current_start;
+        int max_gap_length = 1;
+        
+        for(int i = 1; i < max_points_vec.size(); i++) {
+            // 연속된 인덱스인 경우
+            if(max_points_vec[i] == max_points_vec[i-1] + 1) {
+                current_length++;
+            } 
+            // 연속이 끊긴 경우
+            else {
+                // 현재까지의 구간이 최대 길이보다 크면 갱신
+                if(current_length > max_gap_length) {
+                    max_gap_length = current_length;
+                    max_gap_start = current_start;
+                }
+                // 새로운 구간 시작
+                current_start = max_points_vec[i];
+                current_length = 1;
+            }
+        }
+        
+        // 마지막 구간 체크
+        if(current_length > max_gap_length) {
+            max_gap_length = current_length;
+            max_gap_start = current_start;
+        }
+        
+        // 가장 긴 연속 구간의 중간점을 최적의 주행 포인트로 선택
+        int best_point_index = max_gap_start + (max_gap_length / 2);
+
+        return best_point_index;
     }
+
+    /*int find_best_point(std::vector<float> ranges, int bubble_point_num)*/
+    /*{   */
+    /*    // Start_i & end_i are start and end indicies of max-gap range, respectively*/
+    /*    // Return index of best point in ranges*/
+    /*   // Naive: Choose the furthest point within ranges and go there*/
+    /**/
+    /*    return max_index;*/
+    /*}*/
 
 
     void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr scan_msg) 
@@ -128,23 +176,32 @@ private:
         // Process each LiDAR scan as per the Follow Gap algorithm & publish an AckermannDriveStamped Message
         std::vector<float> processed_ranges;
         processed_ranges = preprocess_lidar(scan_msg->ranges);
+        double min_range = 100.0;
+        int min_index = 0;
 
         /// TODO:
         // Find closest point to LiDAR
         // min_range, min_index
-
+        for(int i = 0; i < data_size; i++) {
+          if(processed_ranges[i] < min_range) {
+            min_range = processed_ranges[i];
+            min_index = i;
+          }
+        }
         // Eliminate all points inside 'bubble' (set them to zero) 
+        double car_width = 0.36;
+        double car_radius = car_width / 2;
         int bubble_point_num = (car_radius / min_range) / scan_msg->angle_increment;
 
         // Find max length gap 
         // Find the best point in the gap 
-        int best_point_index = find_best_point(processed_ranges, bubble_point_num);
+        int best_point_index = find_max_gap(processed_ranges, min_index, bubble_point_num);
         
         // Publish Drive message
         
         auto drive_msg = ackermann_msgs::msg::AckermannDriveStamped();
         // TODO: fill in drive message and publish
-        double steering_angle = scan_msg->ang_min + (angle_increment * best_point_index);
+        double steering_angle = scan_msg->angle_min + (scan_msg->angle_increment * best_point_index);
         double drive_speed = 0.0;
         double steering_degree = std::abs(steering_angle * 180 / M_PI);
 
