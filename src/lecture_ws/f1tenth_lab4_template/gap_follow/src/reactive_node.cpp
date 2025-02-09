@@ -14,12 +14,25 @@ public:
     ReactiveFollowGap() : Node("reactive_node")
     {
         /// TODO: create ROS subscribers and publishers
+        // LaserScan 메시지를 구독하여 scan_callback 호출
+        scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
+            "/scan", 10, std::bind(&WallFollow::scan_callback, this, std::placeholders::_1));
+
+        // Odometry 메시지를 구독하여 odom_callback 호출
+        odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
+            "/odom", 10, std::bind(&WallFollow::odom_callback, this, std::placeholders::_1));
+
+        // AckermannDriveStamped 메시지를 발행하는 퍼블리셔 생성
+        drive_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/drive", 10);
     }
 
 private:
-    std::string lidarscan_topic = "/scan";
-    std::string drive_topic = "/drive";
+    /*std::string lidarscan_topic = "/scan";*/
+    /*std::string drive_topic = "/drive";*/
     /// TODO: create ROS subscribers and publishers
+    rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+    rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr drive_pub_;
 
     void preprocess_lidar(float* ranges)
     {   
@@ -44,7 +57,7 @@ private:
     }
 
 
-    void lidar_callback(const sensor_msgs::msg::LaserScan::ConstSharedPtr scan_msg) 
+    void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr scan_msg) 
     {   
         // Process each LiDAR scan as per the Follow Gap algorithm & publish an AckermannDriveStamped Message
 
