@@ -1,4 +1,5 @@
 #include "rclcpp/rclcpp.hpp"
+#include <algorithm>
 #include <string>
 #include <vector>
 #include "sensor_msgs/msg/laser_scan.hpp"
@@ -34,12 +35,42 @@ private:
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr drive_pub_;
 
-    void preprocess_lidar(float* ranges)
+    void preprocess_lidar(std::vector<float>& ranges)
     {   
         // Preprocess the LiDAR scan array. Expert implementation includes:
-        // 1.Setting each value to the mean over some window
-        // 2.Rejecting high values (eg. > 3m)
-        return;
+        // Cuttoff with threwindow /swapfileshold
+        double scan_threshold = 2.5;
+        int window_size = 9;
+        int padding = window_size / 2;
+        int data_size = ranges.size();
+
+        std::vector<float> padded(data_size + padding * 2);
+
+        // left padding
+        std::fill(padded.begin(), padded.begin() + padding, ranges.front());
+
+        // copy origin
+        std::copy(ranges.begin(), ranges.end(), padded.begin() + padding());
+
+        // right padding
+        std::fill(padded.begin() + padding + data_size, padded.end(), ranges.back());
+
+        // 1.Rejecting high values (eg. > 3m)
+        for(int i = 0; i < data_size + window_size; i++){
+          if(padded[i] > scan_threshold)
+            padded[i] = scan_threshold;
+        }
+  
+        // 2.Setting each value to the mean over some window
+        for(int i = 0; i < data_size; i++){
+          float sum = 0.0;
+          for(int j = 0; j < window_size; j++){
+            sum += padded[i + j];
+          }
+          ranges[i] = sum / window_size;
+        }
+
+        return ranges;
     }
 
     void find_max_gap(float* ranges, int* indice)
@@ -60,6 +91,7 @@ private:
     void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr scan_msg) 
     {   
         // Process each LiDAR scan as per the Follow Gap algorithm & publish an AckermannDriveStamped Message
+        preprocess_lidar(scan_msg->ranges);
 
         /// TODO:
         // Find closest point to LiDAR
