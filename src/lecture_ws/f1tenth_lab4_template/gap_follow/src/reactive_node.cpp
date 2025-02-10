@@ -1,5 +1,6 @@
 #include "rclcpp/rclcpp.hpp"
 #include <algorithm>
+#include <cwchar>
 #include <queue>
 #include <string>
 #include <vector>
@@ -39,15 +40,42 @@ private:
     rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr drive_pub_;
 
     int data_size = 0;
+    double left_wing = M_PI / 2;
+    double right_wing = -(M_PI / 2);
+    int left_wing_index = 0;
+    int right_wing_index = 0;
 
     std::vector<float> preprocess_lidar(std::vector<float>& ranges)
     {   
+      if (ranges.empty()) {
+          return ranges;
+      }
+
         // Preprocess the LiDAR scan array. Expert implementation includes:
         // Cuttoff with threwindow /swapfileshold
-        double scan_threshold = 2.0;
+        double scan_threshold = 2.5;
+        double min_range = *std::min_element(ranges.begin(), ranges.end());
+        if (min_range < 0.1) {
+          scan_threshold = 0.7;
+        }
+        else if (min_range < 0.2) {
+            scan_threshold = 0.8; // 너무 가까운 장애물에 대해서는 1m 이하로 설정
+        }
+        else if (min_range < 0.3) {
+            scan_threshold = 1.0;
+        }
+        // 거리가 2~5m일 경우
+        else if (min_range < 0.6) {
+            scan_threshold = 3.5; // 기본적인 2m threshold 설정
+        }
+        // 그 외에는 3m로 설정
+        else {
+            scan_threshold = 4.0;
+        }
+
         int window_size = 9;
         int padding = window_size / 2;
-        data_size = ranges.size();
+        data_size = static_cast<int>(ranges.size());
 
         std::vector<float> padded(data_size + padding * 2);
 
@@ -112,14 +140,14 @@ private:
         }
         
         // 최대값 찾기
-        for(int i = 0; i < ranges.size(); i++) {
+        for(int i = right_wing_index; i <= left_wing_index; i++) {
             if(ranges[i] > max_dist) {
                 max_dist = ranges[i];
             }
         }
         
         // 최대값을 가진 인덱스들 찾기
-        for(int i = 0; i < ranges.size(); i++) {
+        for(int i = right_wing_index; i <= left_wing_index; i++) {
             if(ranges[i] == max_dist) {
                 max_points_vec.push_back(i);
             }
@@ -158,6 +186,7 @@ private:
         // 가장 긴 연속 구간의 중간점을 최적의 주행 포인트로 선택
         int best_point_index = max_gap_start + (max_gap_length / 2);
 
+        /*RCLCPP_INFO(this->get_logger(), "Bestpoint_index_debug: %d", best_point_index);*/
         return best_point_index;
     }
 
@@ -173,11 +202,17 @@ private:
 
     void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr scan_msg) 
     {   
+        if (scan_msg->ranges.empty()) {
+            RCLCPP_WARN(this->get_logger(), "Empty scan message received");
+            return;
+        }
+
         // Process each LiDAR scan as per the Follow Gap algorithm & publish an AckermannDriveStamped Message
-        std::vector<float> processed_ranges;
+        std::vector<float> processed_ranges(scan_msg->ranges.begin(), scan_msg->ranges.end());
         processed_ranges = preprocess_lidar(scan_msg->ranges);
         double min_range = 100.0;
         int min_index = 0;
+
 
         /// TODO:
         // Find closest point to LiDAR
@@ -191,7 +226,9 @@ private:
         // Eliminate all points inside 'bubble' (set them to zero) 
         double car_width = 0.5;
         double car_radius = car_width;
-        int bubble_point_num = (car_radius / min_range) / scan_msg->angle_increment;
+        int bubble_point = (car_radius / min_range) / scan_msg->angle_increment;
+        int bubble_point_num = std::min(bubble_point, 450);
+        RCLCPP_INFO(this->get_logger(), "Bubble_Point_num: %d", bubble_point_num);
 
         // Find max length gap 
         // Find the best point in the gap 
@@ -219,23 +256,31 @@ private:
         /*} else {  // 매우 급한 커브*/
         /*    drive_speed = 0.2;*/
         /*}*/
-        double left_wing = M_PI / 2;
-        double right_wing = -(M_PI / 2);
-        double safe_dist = car_width;
+        double safe_dist = car_width * 0.5;
         
-        int left_index = (left_wing - scan_msg->angle_min) / scan_msg->angle_increment;
-        int right_index = (right_wing - scan_msg->angle_min) / scan_msg->angle_increment;
+        left_wing_index = (left_wing - scan_msg->angle_min) / scan_msg->angle_increment;
+        right_wing_index = (right_wing - scan_msg->angle_min) / scan_msg->angle_increment;
 
-        /*for(int i = 0; i < right_index; i++){*/
-        /*  if(processed_ranges[i] < safe_dist)*/
+        /*double min_index_angle = scan_msg->angle_min + (min_index * scan_msg->angle_increment);*/
+        /*double thres_ang = std::asin(car_width / min_range);*/
+        /*if(steering_angle - min_index_angle > 0 && steering_angle - min_index_angle < thres_ang){ // Left*/
+        /*    steering_angle = min_index_angle + thres_ang;*/
+        /*}*/
+        /*else if(steering_angle - min_index_angle < 0 && min_index_angle - steering_angle < thres_ang){ // Right*/
+        /*    steering_angle = min_index_angle - thres_ang;*/
+        /*}*/
+        
+        // Cornor Safety Option
+        /*for(int i = 0; i < right_wing_index; i++){*/
+        /*  if(processed_ranges[i] < safe_dist && steering_angle <= 0.0)*/
         /*    steering_angle = 0.0;*/
         /*}*/
         /**/
-        /*for(int i = left_index; i < data_size; i++){*/
-        /*  if(processed_ranges[i] < safe_dist)*/
+        /*for(int i = left_wing_index; i < data_size; i++){*/
+        /*  if(processed_ranges[i] < safe_dist && steering_angle >= 0.0)*/
         /*    steering_angle = 0.0;*/
         /*}*/
-        
+
         drive_msg.drive.steering_angle = steering_angle;
         drive_msg.drive.speed = drive_speed;
         
@@ -243,9 +288,9 @@ private:
 
     }
 
-
-
 };
+
+
 int main(int argc, char ** argv) {
     rclcpp::init(argc, argv);
     rclcpp::spin(std::make_shared<ReactiveFollowGap>());
