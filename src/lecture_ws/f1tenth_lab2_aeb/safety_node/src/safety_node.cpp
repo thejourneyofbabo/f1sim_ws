@@ -17,11 +17,11 @@ public:
 
         // Odometry 메시지를 구독하여 odom_callback 호출
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-            "/odom", 10, std::bind(&Safety::odom_callback, this, std::placeholders::_1));
+            "ego_racecar/odom", 10, std::bind(&Safety::odom_callback, this, std::placeholders::_1));
 
         // AckermannDriveStamped 메시지를 발행하는 퍼블리셔 생성
-        /*drive_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/drive", 10);*/
-        drive_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/teleop", 10);
+        drive_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/drive", 10);
+        /*drive_pub_ = this->create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/teleop", 10);*/
 
     }
         /*
@@ -82,7 +82,7 @@ private:
         }
 
         // 일정 임계값(TTC_THRESHOLD) 이하이면 긴급 제동
-        constexpr double TTC_THRESHOLD = 0.3; // 0.5초 이하일 경우 긴급 제동
+        constexpr double TTC_THRESHOLD = 1.5; // 0.5초 이하일 경우 긴급 제동
         if (min_ttc < TTC_THRESHOLD) {
             RCLCPP_WARN(this->get_logger(), "Emergency Brake Activated! TTC: %f", min_ttc);
             brake();
