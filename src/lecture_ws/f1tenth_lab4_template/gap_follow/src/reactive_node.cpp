@@ -40,8 +40,8 @@ private:
     rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr drive_pub_;
 
     int data_size = 0;
-    double left_wing = M_PI / 2;
-    double right_wing = -(M_PI / 2);
+    double left_wing = M_PI / 2.7;
+    double right_wing = -(M_PI / 2.7);
     int left_wing_index = 0;
     int right_wing_index = 0;
 
@@ -290,7 +290,7 @@ private:
         double car_width = 0.5;
         double car_radius = car_width;
         int bubble_point = (car_radius / min_range) / scan_msg->angle_increment;
-        int bubble_point_num = std::min(bubble_point, 450);
+        int bubble_point_num = std::min(bubble_point, 850);
         /*RCLCPP_INFO(this->get_logger(), "Bubble_Point_num: %d", bubble_point_num);*/
 
         // Find max length gap 
@@ -306,27 +306,27 @@ private:
         double steering_degree = std::abs(steering_angle * 180 / M_PI);
 
         //-------------------- Normal Mode -----------------//
-        if (steering_degree <= 5.0) {  // 거의 직진
-            drive_speed = 1.2;
-        } else if (steering_degree <= 10.0) {  // 약간의 커브
-            drive_speed = 1.0;
-        } else if (steering_degree <= 15.0) {  // 완만한 커브
-            drive_speed = 0.8;
-        } else {  // 중간 커브
-            drive_speed = 0.5;
-        }
+        /*if (steering_degree <= 5.0) {  // 거의 직진*/
+        /*    drive_speed = 1.2;*/
+        /*} else if (steering_degree <= 10.0) {  // 약간의 커브*/
+        /*    drive_speed = 1.0;*/
+        /*} else if (steering_degree <= 15.0) {  // 완만한 커브*/
+        /*    drive_speed = 0.8;*/
+        /*} else {  // 중간 커브*/
+        /*    drive_speed = 0.5;*/
+        /*}*/
         //-------------------- Normal Mode -----------------//
         
         //-------------------- Fast Mode -------------------//
-        /*if (steering_degree <= 5.0) {  // 거의 직진*/
-        /*    drive_speed = 4.5;*/
-        /*} else if (steering_degree <= 10.0) {  // 약간의 커브*/
-        /*    drive_speed = 3.0;*/
-        /*} else if (steering_degree <= 15.0) {  // 완만한 커브*/
-        /*    drive_speed = 2.8;*/
-        /*} else {  // 중간 커브*/
-        /*    drive_speed = 1.5;*/
-        /*}*/
+        if (steering_degree <= 5.0) {  // 거의 직진
+            drive_speed = 4.5;
+        } else if (steering_degree <= 10.0) {  // 약간의 커브
+            drive_speed = 3.0;
+        } else if (steering_degree <= 15.0) {  // 완만한 커브
+            drive_speed = 2.8;
+        } else {  // 중간 커브
+            drive_speed = 1.5;
+        }
         //-------------------- Fast Mode -------------------//
 
         /*} else if (steering_degree <= 25.0) {  // 급한 커브*/
