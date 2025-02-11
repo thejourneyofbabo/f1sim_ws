@@ -55,23 +55,87 @@ private:
         // Cuttoff with threwindow /swapfileshold
         double scan_threshold = 2.5;
         double min_range = *std::min_element(ranges.begin(), ranges.end());
-        if (min_range < 0.1) {
-          scan_threshold = 0.7;
+        RCLCPP_INFO(this->get_logger(), "Min_range: %f", min_range);
+        /*if (min_range < 0.1) {*/
+        /*  scan_threshold = 0.7;*/
+        /*}*/
+        /*else if (min_range < 0.2) {*/
+        /*    scan_threshold = 0.8; // 너무 가까운 장애물에 대해서는 1m 이하로 설정*/
+        /*}*/
+        /*else if (min_range < 0.3) {*/
+        /*    scan_threshold = 1.0;*/
+        /*}*/
+        /*// 거리가 2~5m일 경우*/
+        /*else if (min_range < 0.6) {*/
+        /*    scan_threshold = 3.5; // 기본적인 2m threshold 설정*/
+        /*}*/
+        /*// 그 외에는 3m로 설정*/
+        /*else {*/
+        /*    scan_threshold = 4.0;*/
+        /*}*/
+            // 거리별 기준점 설정 (min_range, threshold)
+
+        // --------------- Fine Tuning Threshold ---------------- //
+        struct ThresholdPoint {
+            double range;
+            double threshold;
+        };
+        
+        const ThresholdPoint points[] = {
+            {0.15, 0.4},  // 최소 시작점
+            {0.2, 0.6},   // 시작점
+            {0.5, 1.2},   // 초기에는 좀 더 민감하게 증가
+            {0.8, 1.8},
+            {1.1, 2.4},
+            {1.4, 2.8},   // 중간 범위에서는 threshold를 좀 더 큰 폭으로
+            {1.7, 3.2},
+            {2.0, 3.6},
+            {2.3, 3.9},
+            {2.6, 4.2},
+            {3.0, 4.5}    // 최대점
+          // ---------
+            /*{0.15, 0.4},  // 최소 시작점*/
+            /*{0.20, 0.6},  // 최소 시작점*/
+            /*{0.50, 1.2},  // 더 조밀한 간격으로 조정*/
+            /*{0.40, 1.3},*/
+            /*{0.50, 1.8},  // 중간 지점부터 급격한 증가*/
+            /*{0.60, 1.5},*/
+            /*{0.65, 1.7},*/
+            /*{0.70, 1.7},*/
+            /*{0.75, 1.8},*/
+            /*{0.80, 1.9},  // 실제 최대 범위 근처*/
+            /*{0.81, 2.2},  // 실제 최대 범위 근처*/
+            /*{0.83, 2.5},  // 실제 최대 범위 근처*/
+            /*{0.85, 3.5},  // 실제 최대 범위*/
+            /*{2.0, 3.6},*/
+            /*{2.3, 3.9},*/
+            /*{2.6, 4.2},*/
+            /*{3.0, 5.5}    // 최대점*/
+        };
+
+        // 입력된 min_range가 어느 구간에 속하는지 찾기
+        int i = 0;
+        while (i < sizeof(points)/sizeof(points[0]) - 1 && min_range > points[i].range) {
+            i++;
         }
-        else if (min_range < 0.2) {
-            scan_threshold = 0.8; // 너무 가까운 장애물에 대해서는 1m 이하로 설정
+
+        // 범위를 벗어나는 경우 처리
+        if (min_range <= points[0].range) {
+            scan_threshold = points[0].threshold;
         }
-        else if (min_range < 0.3) {
-            scan_threshold = 1.0;
+        else if (min_range >= points[sizeof(points)/sizeof(points[0])-1].range) {
+            scan_threshold = points[sizeof(points)/sizeof(points[0])-1].threshold;
         }
-        // 거리가 2~5m일 경우
-        else if (min_range < 0.6) {
-            scan_threshold = 3.5; // 기본적인 2m threshold 설정
-        }
-        // 그 외에는 3m로 설정
         else {
-            scan_threshold = 4.0;
+            // 선형 보간 계산
+            double range_diff = points[i].range - points[i-1].range;
+            double threshold_diff = points[i].threshold - points[i-1].threshold;
+            double ratio = (min_range - points[i-1].range) / range_diff;
+            
+            // 보간된 threshold 값 계산
+            scan_threshold = points[i-1].threshold + (threshold_diff * ratio);
         }
+        // --------------- Fine Tuning Threshold ---------------- //
 
         int window_size = 9;
         int padding = window_size / 2;
@@ -199,7 +263,6 @@ private:
     /*    return max_index;*/
     /*}*/
 
-
     void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr scan_msg) 
     {   
         if (scan_msg->ranges.empty()) {
@@ -228,7 +291,7 @@ private:
         double car_radius = car_width;
         int bubble_point = (car_radius / min_range) / scan_msg->angle_increment;
         int bubble_point_num = std::min(bubble_point, 450);
-        RCLCPP_INFO(this->get_logger(), "Bubble_Point_num: %d", bubble_point_num);
+        /*RCLCPP_INFO(this->get_logger(), "Bubble_Point_num: %d", bubble_point_num);*/
 
         // Find max length gap 
         // Find the best point in the gap 
@@ -242,6 +305,7 @@ private:
         double drive_speed = 0.0;
         double steering_degree = std::abs(steering_angle * 180 / M_PI);
 
+        //-------------------- Normal Mode -----------------//
         if (steering_degree <= 5.0) {  // 거의 직진
             drive_speed = 1.2;
         } else if (steering_degree <= 10.0) {  // 약간의 커브
@@ -251,6 +315,20 @@ private:
         } else {  // 중간 커브
             drive_speed = 0.5;
         }
+        //-------------------- Normal Mode -----------------//
+        
+        //-------------------- Fast Mode -------------------//
+        /*if (steering_degree <= 5.0) {  // 거의 직진*/
+        /*    drive_speed = 4.5;*/
+        /*} else if (steering_degree <= 10.0) {  // 약간의 커브*/
+        /*    drive_speed = 3.0;*/
+        /*} else if (steering_degree <= 15.0) {  // 완만한 커브*/
+        /*    drive_speed = 2.8;*/
+        /*} else {  // 중간 커브*/
+        /*    drive_speed = 1.5;*/
+        /*}*/
+        //-------------------- Fast Mode -------------------//
+
         /*} else if (steering_degree <= 25.0) {  // 급한 커브*/
         /*    drive_speed = 0.4;*/
         /*} else {  // 매우 급한 커브*/
